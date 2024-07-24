@@ -60,6 +60,7 @@ int main(int argc, char* argv[])
         .num_slots = DEFAULT_NUM_SLOTS,
         .bind_ipv4 = true,
         .bind_ipv6 = true,
+        // .enable_ssl = false,
         .silent_mode = false,
         .http_root_context = &root_context,
         .api_tree = NULL,
@@ -101,6 +102,9 @@ int main(int argc, char* argv[])
                 config.bind_ipv4 = false;
                 config.bind_ipv6 = true;
                 break;
+            // case 'e':
+            //     config.enable_ssl = true;
+            //     break;
             case 'h':
             default:
                 usage(argv[0]);

@@ -98,6 +98,7 @@ struct kitserv_config {
     int num_slots;
     bool bind_ipv4;
     bool bind_ipv6;
+    // bool enable_ssl;
     bool silent_mode;  // disable non-catastrophic error output and logging
     struct kitserv_request_context* http_root_context;
     struct kitserv_api_tree* api_tree;  // nullable to disable API

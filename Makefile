@@ -15,7 +15,7 @@ MAN_DIR := man
 
 WARNINGS := -Wall -Wextra -Wmissing-prototypes -Winline -pedantic
 CFLAGS := -MMD -MP -O2 $(WARNINGS) -I$(INCLUDE_DIR) -I$(SRC_INCLUDE_DIR) -fpie -DNDEBUG
-LDFLAGS := -pthread
+LDFLAGS := -I/usr/include/openssl -pthread -lcrypto -lssl
 
 SOURCES := $(shell find $(SRC_DIR) -type f \( -name *.c \! -name main.c \) )
 OBJS := $(patsubst $(SRC_DIR)/%, $(OBJ_DIR)/%, $(SOURCES:.c=.o))
@@ -41,7 +41,7 @@ debug:	all
 
 $(OBJ_DIR)/%.o:	$(SRC_DIR)/%.c Makefile
 	@mkdir -p $(OBJ_DIR)
-	$(CC) $(CFLAGS) $(LDFLAGS) -c $< -o $@
+	$(CC) $(CFLAGS)  -c $< -o $@ $(LDFLAGS)
 
 $(LIB):	$(OBJS) Makefile
 	@mkdir -p $(LIB_DIR)
@@ -50,7 +50,7 @@ $(LIB):	$(OBJS) Makefile
 
 $(STANDALONE):	$(BIN_OBJS) Makefile
 	@mkdir -p $(BIN_DIR)
-	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $(BIN_OBJS)
+	$(CC) $(CFLAGS)  -o $@ $(BIN_OBJS) $(LDFLAGS)
 
 install:	all
 	@mkdir -p $(KITSERV_INCDIR)

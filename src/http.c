@@ -28,6 +28,7 @@
 
 #include "buffer.h"
 #include "kitserv.h"
+#include "tls.h"
 
 #define SERVER_NAME ("kitserv")
 
@@ -36,7 +37,10 @@
 static struct kitserv_request_context* default_context;
 static struct kitserv_api_tree* api_tree;
 
-void kitserv_http_init(struct kitserv_request_context* http_default_context, struct kitserv_api_tree* http_api_list)
+static SSL_CTX* ctx;
+// static bool ssl_enabled;
+
+void kitserv_http_init(struct kitserv_request_context* http_default_context, struct kitserv_api_tree* http_api_list, SSL_CTX* ssl_ctx)
 {
     if (!http_default_context) {
         fprintf(stderr, "No web context provided.\n");
@@ -47,8 +51,19 @@ void kitserv_http_init(struct kitserv_request_context* http_default_context, str
         abort();
     }
 
+    // ssl_enabled = is_ssl_enabled;
+
+    // if (ssl_enabled && !ssl_ctx) {
+    //     fprintf(stderr, "No SSL context provided.\n");
+    //     abort();
+    // }
+
     default_context = http_default_context;
     api_tree = http_api_list;
+    
+    // if (ssl_enabled) {
+    ctx = ssl_ctx;
+    // }
 }
 
 int kitserv_http_create_client_struct(struct kitserv_client* client)
@@ -86,6 +101,10 @@ err_reqheaders:
 
 static inline void cleanup_client(struct kitserv_client* client)
 {
+    if (client->ssl) {
+        SSL_shutdown(client->ssl);
+        printf("cleaning up ssl");
+    }
     memset(&client->ta, 0, sizeof(struct http_transaction));
     kitserv_buffer_reset(&client->resp_body, HTTP_BUFSZ);
 }
@@ -593,6 +612,34 @@ static int http_header_add_allow(struct kitserv_client* client)
     }
 }
 
+int kitserv_http_ssl_handshake(struct kitserv_client* client) {
+    // Create new SSL if we don't have one yet
+    if (client->ssl == NULL) {
+        client->ssl = SSL_new(ctx);
+        if (client->ssl == NULL) {
+            return 1;
+        }
+        if (!SSL_set_fd(client->ssl, client->sockfd)) {
+            return 1;
+        }    
+    }
+    int accept_status = SSL_accept(client->ssl);
+    if (accept_status == 1) {
+        // Success case: handshake completed successfully, ready to read data
+        client->ta.state = HTTP_STATE_READ;
+        return 0;
+    } else {
+        int err = SSL_get_error(client->ssl, accept_status);
+        if (err == SSL_ERROR_WANT_READ || err == SSL_ERROR_WANT_WRITE) {
+            // Waiting on more data from socket to continue handshake
+            return 0;
+        } else {
+            // We got an actual error and the connection is toast
+            return 1;
+        }
+    }
+}
+
 int kitserv_http_recv_request(struct kitserv_client* client)
 {
     int readrc, i;
@@ -609,7 +656,10 @@ int kitserv_http_recv_request(struct kitserv_client* client)
 
     /* before jumping here, set the parse state to wherever you came from */
 read_more:
-    readrc = read(client->sockfd, &client->req_headers[client->req_headers_len], HTTP_BUFSZ - client->req_headers_len);
+    // readrc = read(client->sockfd, &client->req_headers[client->req_headers_len], HTTP_BUFSZ - client->req_headers_len);
+    ; // bro what is this
+    size_t bytes_read = 0;
+    readrc = SSL_read_ex(client->ssl, &client->req_headers[client->req_headers_len], HTTP_BUFSZ - client->req_headers_len, &bytes_read);
     if (readrc <= 0) {
         // a few different cases to catch:
         // 1) -1 - socket is blocking, parsed    - save parsing and return 0
@@ -618,8 +668,12 @@ read_more:
         // 4) 0  - header buffer full, parsed    - prepare for a 431 error and return -1
         // 5) 0  - header buffer full, unparsed  - parse as much as we can, hope that it fit (continue to parser)
         // 6) 0  - socket has hit EOF            - indicate hangup and return -1
-        if (readrc != 0) {
-            if (errno == EAGAIN || errno == EWOULDBLOCK) {
+        
+        // if (readrc != 0) {
+        //     if (errno == EAGAIN || errno == EWOULDBLOCK) {
+        if (readrc == 0) {
+            int ssl_error = SSL_get_error(client->ssl, readrc);
+            if (ssl_error == SSL_ERROR_WANT_READ || ssl_error == SSL_ERROR_WANT_WRITE) {
                 if (parse_past_end(r)) {
                     client->ta.req_parse_blk = p;
                     client->ta.req_parse_iter = r;
@@ -643,7 +697,8 @@ read_more:
             }
         }
     } else {
-        client->req_headers_len += readrc;
+        // client->req_headers_len += readrc;
+        client->req_headers_len += bytes_read;
     }
 
     switch (client->ta.parse_state) {
@@ -1319,9 +1374,13 @@ int kitserv_http_send_response(struct kitserv_client* client)
 
     while (1) {
         // writev will ignore 0-length iovecs - very convenient
-        rc = writev(client->sockfd, client->ta.resp_bufs, 3);
+        // rc = writev(client->sockfd, client->ta.resp_bufs, 3);
+        rc = SSL_writev_ex(client->ssl, client->ta.resp_bufs, 3);
+
         if (rc < 0) {
-            return errno = EAGAIN || errno == EWOULDBLOCK ? 0 : -1;
+            // return errno = EAGAIN || errno == EWOULDBLOCK ? 0 : -1;
+            int ssl_error = SSL_get_error(client->ssl, rc);
+            return ssl_error == SSL_ERROR_WANT_READ || ssl_error == SSL_ERROR_WANT_WRITE ? 0 : -1;
         }
 
         for (i = 0; i < 3; i++) {
@@ -1396,8 +1455,10 @@ int kitserv_http_send_response_file(struct kitserv_client* client)
     if (client->ta.resp_fd > 0 && client->ta.req_method != HTTP_HEAD) {
         do {
 #ifdef KITSERV_HAVE_SENDFILE
-            rc = sendfile(client->sockfd, client->ta.resp_fd, &client->ta.resp_body_pos,
-                          client->ta.resp_body_end - client->ta.resp_body_pos + 1);
+            // rc = sendfile(client->sockfd, client->ta.resp_fd, &client->ta.resp_body_pos,
+            //               client->ta.resp_body_end - client->ta.resp_body_pos + 1);
+            rc = SSL_sendfile(client->ssl, client->ta.resp_fd, &client->ta.resp_body_pos, 
+                            client->ta.resp_body_end - client->ta.resp_body_pos + 1);
 #else
             rc = sendfile_emulation(client->sockfd, client->ta.resp_fd, &client->ta.resp_body_pos,
                                     client->ta.resp_body_end - client->ta.resp_body_pos + 1);
@@ -1407,7 +1468,9 @@ int kitserv_http_send_response_file(struct kitserv_client* client)
             // finished sending the file - pos should be one greater than end here
             close_fd_to_zero(&client->ta.resp_fd);
         } else if (rc < 0) {
-            return errno == EAGAIN || errno == EWOULDBLOCK ? 0 : -1;
+            // return errno == EAGAIN || errno == EWOULDBLOCK ? 0 : -1;
+            int ssl_error = SSL_get_error(client->ssl, rc);
+            return ssl_error == SSL_ERROR_WANT_READ || ssl_error == SSL_ERROR_WANT_WRITE ? 0 : -1;
         }
     }
 
@@ -1438,6 +1501,19 @@ int kitserv_http_serve_client(struct kitserv_client* client)
 
     while (1) {
         switch (*state) {
+            // TODO how to skip this stage when SSL is disabled
+            case HTTP_STATE_START:
+                ;
+                int value = kitserv_http_ssl_handshake(client);
+                if (value) {
+                    // we do a little erroring
+                    // TODO not sure how to set client->ta.resp_status since
+                    // this is an SSL error and not an HTTP error
+                    return -1;
+                } else if (*state == HTTP_STATE_START) {
+                    // handshake not done yet
+                    return 0;
+                }
             case HTTP_STATE_READ:
                 if (kitserv_http_recv_request(client)) {
                     if (client->ta.resp_status == HTTP_X_HANGUP) {

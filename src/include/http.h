@@ -7,6 +7,8 @@
 #include <stdbool.h>
 #include <sys/uio.h>
 
+#include <ssl.h>
+
 #include "buffer.h"
 #include "kitserv.h"
 
@@ -16,7 +18,8 @@
 #define HTTP_MAX_COOKIES (50)
 
 enum http_transaction_state {
-    HTTP_STATE_READ = 0,
+    HTTP_STATE_START = 0,
+    HTTP_STATE_READ,
     HTTP_STATE_SERVE,
     HTTP_STATE_PREPARE_RESPONSE,
     HTTP_STATE_SEND,
@@ -124,12 +127,14 @@ struct kitserv_client {
     int req_headers_len;
 
     int sockfd;
+
+    SSL* ssl;
 };
 
 /**
  * Initalize HTTP system. Use NULL to disable API endpoints.
  */
-void kitserv_http_init(struct kitserv_request_context* http_default_context, struct kitserv_api_tree* http_api_list);
+void kitserv_http_init(struct kitserv_request_context* http_default_context, struct kitserv_api_tree* http_api_list, SSL_CTX* ssl_ctx);
 
 /**
  * Allocate the internal structures of a client and its associated transaction.

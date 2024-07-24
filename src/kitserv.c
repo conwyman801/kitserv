@@ -24,6 +24,7 @@
 #include "http.h"
 #include "queue.h"
 #include "socket.h"
+#include "tls.h"
 
 #define MAX_EVENTS (64)
 
@@ -108,6 +109,8 @@ static struct connection* connection_accept(struct connection_container* contain
         container->freelist_count--;
 
         conn->client.sockfd = socket;
+
+        conn->client.ssl = NULL;
 
         // ensure that this connection is fresh
         // this doesn't ensure everything is reset, but is good enough to detect blatant mistakes
@@ -279,7 +282,12 @@ void kitserv_server_start(struct kitserv_config* config)
     // share slots between workers, round up to nearest multiple
     slots = (config->num_slots + config->num_workers - 1) / config->num_workers;
 
-    kitserv_http_init(config->http_root_context, config->api_tree);
+    SSL_CTX* ctx;
+    // if (config->enable_ssl) {
+    ctx = kitserv_tls_init();
+    // }
+
+    kitserv_http_init(config->http_root_context, config->api_tree, ctx);
 
     // block INT and TERM so that helper threads don't receive them
     if (sigemptyset(&sigset) || sigaddset(&sigset, SIGINT) || sigaddset(&sigset, SIGTERM)) {
