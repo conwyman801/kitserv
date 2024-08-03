@@ -134,7 +134,7 @@ struct kitserv_client {
 /**
  * Initalize HTTP system. Use NULL to disable API endpoints.
  */
-void kitserv_http_init(struct kitserv_request_context* http_default_context, struct kitserv_api_tree* http_api_list, SSL_CTX* ssl_ctx);
+void kitserv_http_init(struct kitserv_request_context* http_default_context, struct kitserv_api_tree* http_api_list, SSL_CTX* ssl_ctx, bool is_ssl_enabled);
 
 /**
  * Allocate the internal structures of a client and its associated transaction.

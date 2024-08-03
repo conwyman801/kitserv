@@ -41,6 +41,11 @@ static void usage(const char* prog_name)
     exit(1);
 }
 
+// TODO:
+// how to do ssl config
+// verify connections are closing correctly
+// test error handling
+
 int main(int argc, char* argv[])
 {
     struct kitserv_request_context root_context;
@@ -60,13 +65,13 @@ int main(int argc, char* argv[])
         .num_slots = DEFAULT_NUM_SLOTS,
         .bind_ipv4 = true,
         .bind_ipv6 = true,
-        // .enable_ssl = false,
+        .enable_ssl = false,
         .silent_mode = false,
         .http_root_context = &root_context,
         .api_tree = NULL,
     };
 
-    while ((opt = getopt(argc, argv, "w:p:s:t:f:r:46h")) != -1) {
+    while ((opt = getopt(argc, argv, "w:p:s:t:f:r:46eh")) != -1) {
         switch (opt) {
             case 'w':
                 root_context.root = optarg;
@@ -102,9 +107,9 @@ int main(int argc, char* argv[])
                 config.bind_ipv4 = false;
                 config.bind_ipv6 = true;
                 break;
-            // case 'e':
-            //     config.enable_ssl = true;
-            //     break;
+            case 'e':
+                config.enable_ssl = true;
+                break;
             case 'h':
             default:
                 usage(argv[0]);

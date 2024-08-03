@@ -283,11 +283,11 @@ void kitserv_server_start(struct kitserv_config* config)
     slots = (config->num_slots + config->num_workers - 1) / config->num_workers;
 
     SSL_CTX* ctx;
-    // if (config->enable_ssl) {
-    ctx = kitserv_tls_init();
-    // }
+    if (config->enable_ssl) {
+        ctx = kitserv_tls_init();
+    }
 
-    kitserv_http_init(config->http_root_context, config->api_tree, ctx);
+    kitserv_http_init(config->http_root_context, config->api_tree, ctx, config->enable_ssl);
 
     // block INT and TERM so that helper threads don't receive them
     if (sigemptyset(&sigset) || sigaddset(&sigset, SIGINT) || sigaddset(&sigset, SIGTERM)) {

@@ -44,7 +44,7 @@ SSL_CTX* kitserv_tls_init() {
 }
 
 // https://fossies.org/dox/glibc-2.39/sysdeps_2posix_2writev_8c_source.html
-ssize_t SSL_writev_ex(SSL* ssl, const struct iovec *vector, int count) {
+ssize_t SSL_writev(SSL* ssl, const struct iovec *vector, int count) {
     ssize_t buf_sz = 0;
     for (int i = 0; i < count; i++) {
         buf_sz += vector[i].iov_len;
