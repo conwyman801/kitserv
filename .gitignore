@@ -1,6 +1,8 @@
 obj/
 bin/
 lib/
+web/
+class-project-web/
 .*
 !.clang-format
 !.gitignore
