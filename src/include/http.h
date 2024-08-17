@@ -7,7 +7,7 @@
 #include <stdbool.h>
 #include <sys/uio.h>
 
-#include <ssl.h>
+#include <openssl/ssl.h>
 
 #include "buffer.h"
 #include "kitserv.h"

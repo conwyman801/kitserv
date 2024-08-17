@@ -1,6 +1,7 @@
 obj/
 bin/
 lib/
+resources/
 web/
 class-project-web/
 .*

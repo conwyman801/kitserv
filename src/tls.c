@@ -1,8 +1,8 @@
 #include "tls.h"
 
 struct kitserv_tls_config_line kitserv_tls_config[KITSERV_TLS_CFG_ITEMS] = {
-    {"server_cert_pem", "bin/chain.pem", NULL},
-    {"server_private_key", "bin/pkey.pem", NULL}
+    {"server_cert_pem", "resources/chain.pem", NULL},
+    {"server_private_key", "resources/pkey.pem", NULL}
 };
 
 SSL_CTX* kitserv_tls_init() {
@@ -25,22 +25,18 @@ SSL_CTX* kitserv_tls_init() {
     SSL_CTX_set_options(ctx, opts);
 
     // Load certificate + private key
-    // TODO make file names configurable
-    // TODO config file? (literally spring)
-    if (SSL_CTX_use_certificate_chain_file(ctx, "bin/chain.pem") <= 0) {
+    if (SSL_CTX_use_certificate_chain_file(ctx, "resources/chain.pem") <= 0) {
         SSL_CTX_free(ctx);
         perror("ssl certificate");
         exit(1);
     }
 
-    if (SSL_CTX_use_PrivateKey_file(ctx, "bin/pkey.pem", SSL_FILETYPE_PEM) <= 0) {
+    if (SSL_CTX_use_PrivateKey_file(ctx, "resources/pkey.pem", SSL_FILETYPE_PEM) <= 0) {
         SSL_CTX_free(ctx);
         ERR_print_errors_fp(stderr);
         perror("ssl private key");
         exit(1);
     }
-
-    // TODO enable caching
 
     // Not doing mTLS
     SSL_CTX_set_verify(ctx, SSL_VERIFY_NONE, NULL);

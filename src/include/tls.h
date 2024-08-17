@@ -3,7 +3,7 @@
 #include <string.h>
 #include <assert.h>
 #include <ctype.h>
-#include <ssl.h>
+#include <openssl/ssl.h>
 
 #ifndef KITSERV_TLS_H
 #define KITSERV_TLS_H

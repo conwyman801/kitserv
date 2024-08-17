@@ -284,9 +284,11 @@ void kitserv_server_start(struct kitserv_config* config)
 
     SSL_CTX* ctx;
     if (config->enable_ssl) {
-        // TODO make configurable
-        // ctx = kitserv_tls_init();
-        ctx = kitserv_tls_init_config("bin/tls_config.txt");
+        if (config->ssl_config_path != NULL) {
+            ctx = kitserv_tls_init_config(config->ssl_config_path);
+        } else {
+            ctx = kitserv_tls_init();
+        }
     }
 
     kitserv_http_init(config->http_root_context, config->api_tree, ctx, config->enable_ssl);

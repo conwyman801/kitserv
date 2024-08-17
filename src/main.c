@@ -41,10 +41,15 @@ static void usage(const char* prog_name)
     exit(1);
 }
 
-// TODO:
-// how to do ssl config
+// TODO: document behavior
 // verify connections are closing correctly
 // test error handling
+
+// TLS behavior:
+// TLS disabled: ignore any TLS config
+// TLS enabled, NO config: use default settings
+// TLS enabled, YES config: read config file
+// TLS enabled, YES config, missing setting: use default option
 
 int main(int argc, char* argv[])
 {
@@ -71,7 +76,7 @@ int main(int argc, char* argv[])
         .api_tree = NULL,
     };
 
-    while ((opt = getopt(argc, argv, "w:p:s:t:f:r:46eh")) != -1) {
+    while ((opt = getopt(argc, argv, "w:p:s:t:f:r:c:46eh")) != -1) {
         switch (opt) {
             case 'w':
                 root_context.root = optarg;
@@ -109,6 +114,9 @@ int main(int argc, char* argv[])
                 break;
             case 'e':
                 config.enable_ssl = true;
+                break;
+            case 'c':
+                config.ssl_config_path = optarg;
                 break;
             case 'h':
             default:
